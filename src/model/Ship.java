@@ -9,6 +9,8 @@ public class Ship {
 		length = lengthIn;
 	}
 	
+	public void decrementLength() { length = (length - 1 >= 0) ? length - 1 : 0; }
+	
 	// Getters
 	public String getName() { return name; }
 	public int getLength() { return length; }

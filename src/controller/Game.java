@@ -12,8 +12,6 @@ public class Game {
 	private Player player;
 	private Bot bot;
 	
-	private Ship[] ships;
-	
 	public Game() {
 		reader = new Scanner(System.in);
 		init();
@@ -22,7 +20,6 @@ public class Game {
 	public void init() {
 		// Game initializing
 		introduction();
-		createShips();
 		placeShips(player);
 		placeShips(bot);
 		
@@ -34,42 +31,37 @@ public class Game {
 		System.out.println("Type a username: ");
 		String username = reader.nextLine();
 		
+		int difficulty = userInput("What difficulty do you want the bot to be? \n1 = Easy \n2 = Medium \n3 = Hard", "Error, please enter 1 through 3 for difficulty", 1, 3);
+		
 		player = new Player(username);
-		bot = new Bot();
+		bot = new Bot(difficulty);
 	}
 	
 	// Logic
-	public void createShips() {
-		ships = new Ship[6];
-		ships[0] = new Ship("Carrier", 5);
-		ships[1] = new Ship("Battleship", 4);
-		ships[2] = new Ship("Submarine 1", 3);
-		ships[3] = new Ship("Submarine 2", 3);
-		ships[4] = new Ship("Destroyer 1", 2);
-		ships[5] = new Ship("Destroyer 2", 2);
-	}
 	
 	public void placeShips(Player player) {
 		int shipsPlaced = 0;
 		
+		Ship[] ships = player.getShips();
+		
 		while (shipsPlaced < ships.length) {
 			int orientation = randomInteger(0, 1);
 			
-			int rowPlaced = randomInteger(0, (orientation == 0) ? player.getBoard().getRows() - ships[shipsPlaced].getLength() : player.getBoard().getRows());
-			int colPlaced = randomInteger(0, (orientation == 0) ? player.getBoard().getCols() : player.getBoard().getCols() - ships[shipsPlaced].getLength());
+			int rowPlaced = randomInteger(0, (orientation == 0) ? player.getBoard().getRows() - ships[shipsPlaced].getLength() - 1 : player.getBoard().getRows() - 1);
+			int colPlaced = randomInteger(0, (orientation == 0) ? player.getBoard().getCols() - 1 : player.getBoard().getCols() - ships[shipsPlaced].getLength() - 1);
 			
 			if (!checkIntersection(player, ships[shipsPlaced], rowPlaced, colPlaced, orientation)) {
 				// Vertical, Top Down, Row Changes
 				if (orientation == 0) {
 					for (int iterator = rowPlaced; iterator < rowPlaced + ships[shipsPlaced].getLength(); iterator++) {
-						player.getBoard().placeShipTile(iterator, colPlaced);
+						player.getBoard().updateTile(iterator, colPlaced, (char) ('A' + shipsPlaced));
 					}
 				}
 				
 				// Horizontal, Left to Right, Col Changes
 				else if (orientation == 1) {
 					for (int iterator = colPlaced; iterator < colPlaced + ships[shipsPlaced].getLength(); iterator++) {
-						player.getBoard().placeShipTile(rowPlaced, iterator);
+						player.getBoard().updateTile(rowPlaced, iterator, (char) ('A' + shipsPlaced));
 					}
 				}
 				shipsPlaced++;
@@ -100,14 +92,30 @@ public class Game {
 	
 	public void loop() {
 		do {
-			while (!hasPlayerLost() && !hasBotLost()) {
-				// Player Turn
-				int col = userInput("Enter the Column you wish to Target (X): ", "Out of range of the board", 0, bot.getBoard().getCols());
-				int row = userInput("Enter the Row you wish to Target (Y): ", "Out of range of the board", 0, bot.getBoard().getRows());
+			while (!hasPlayerLost() && !hasBotLost()) {				
+				// Player's Turn
+				bot.displayBoard();
 				
+				int col = userInput("Enter the Column you wish to Target (X): ", "Out of range of the board", 0, bot.getBoard().getCols() - 1);
+				int row = userInput("Enter the Row you wish to Target (Y): ", "Out of range of the board", 0, bot.getBoard().getRows() - 1);
 				
-				
-				// Bot Turn
+				if (bot.getBoard().getContents()[row][col] == bot.getBoard().MISS_SYMBOL || bot.getBoard().getContents()[row][col] == bot.getBoard().HIT_SYMBOL) {
+					System.out.println(row + " : " + col + " has already been hit!");
+				}
+				else {
+					if (bot.getBoard().getContents()[row][col] >= 'A' && bot.getBoard().getContents()[row][col] <= 'A' + bot.getShips().length - 1) {
+						bot.getBoard().hit(row, col);
+						bot.getShip(bot.getBoard().getContents()[row][col]).decrementLength();
+					}
+					
+					else {
+						bot.getBoard().miss(row, col);
+					}
+					
+					// Bot's Turn
+					bot.analyzeBoard(player);
+					player.displayBoard();
+				}
 			}
 			
 			if (hasBotLost()) { System.out.println("You have won!"); }
@@ -116,13 +124,12 @@ public class Game {
 		} while (askToPlayAgain());
 	}
 	
-	public boolean hasPlayerLost() {
-		return false;
+	public void displaySunkenShips() {
+		
 	}
 	
-	public boolean hasBotLost() {
-		return false;
-	}
+	public boolean hasPlayerLost() { return player.tilesRemaining() <= 0; }
+	public boolean hasBotLost() { return bot.tilesRemaining() <= 0; }
 	
 	public int userInput(String prompt, String errorMessage, int lower, int upper) {
 		int value;
@@ -138,6 +145,7 @@ public class Game {
 	public boolean askToPlayAgain() {
 		char answer;
 		System.out.println("Would you like to play again? (Y/N)");
+		
 		do {
 			answer = reader.nextLine().toUpperCase().charAt(0);
 			if (answer != 'Y' && answer != 'N') { System.out.println("Error, Y or N are the only valid answers."); }
@@ -146,7 +154,7 @@ public class Game {
 		return (answer == 'Y');
 	}
 	
-	// Utilities
+	// Utility Functions
 	public int randomInteger(int lower, int upper) {
 		return (int) (lower + (Math.random() * (upper + 1)));
 	}
@@ -158,4 +166,8 @@ public class Game {
 	public char randomChar(int lower, int upper) {
 		return (char) randomInteger(lower, (upper + 1));
 	}
+	
+	// Getters
+	public Player getPlayer() { return player; }
+	public Bot getBot() { return bot; }
 }
